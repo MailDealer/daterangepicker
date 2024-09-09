@@ -52,6 +52,7 @@
         this.timePickerIncrement = 1;
         this.timePickerSeconds = false;
         this.linkedCalendars = true;
+        this.typingInput = false;
         this.autoUpdateInput = true;
         this.alwaysShowCalendars = false;
         this.ranges = {};
@@ -96,6 +97,16 @@
         //data-api options will be overwritten with custom javascript options
         options = $.extend(this.element.data(), options);
 
+        if (typeof options.typingInput === 'boolean')
+          this.typingInput = options.typingInput;
+
+        var drpSelected = '<span class="drp-selected"></span>';
+        var drpInputs = `
+          <div class="drp-inputs">
+            <input type="text" class="drp-input drp-input_start" />
+            -
+            <input type="text" class="drp-input drp-input_end" />
+          </div>`;
         //html template for the picker UI
         if (typeof options.template !== 'string' && !(options.template instanceof $))
             options.template =
@@ -110,7 +121,7 @@
                     '<div class="calendar-time"></div>' +
                 '</div>' +
                 '<div class="drp-buttons">' +
-                    '<span class="drp-selected"></span>' +
+                    (this.typingInput ? drpInputs : drpSelected) +
                     '<button class="cancelBtn" type="button"></button>' +
                     '<button class="applyBtn" disabled="disabled" type="button"></button> ' +
                 '</div>' +
@@ -409,7 +420,6 @@
         //
         // event listeners
         //
-
         this.container.find('.drp-calendar')
             .on('click.daterangepicker', '.prev', $.proxy(this.clickPrev, this))
             .on('click.daterangepicker', '.next', $.proxy(this.clickNext, this))
@@ -424,7 +434,8 @@
 
         this.container.find('.drp-buttons')
             .on('click.daterangepicker', 'button.applyBtn', $.proxy(this.clickApply, this))
-            .on('click.daterangepicker', 'button.cancelBtn', $.proxy(this.clickCancel, this));
+            .on('click.daterangepicker', 'button.cancelBtn', $.proxy(this.clickCancel, this))
+            .on('change.daterangepicker', 'input.drp-input', $.proxy(this.formInputsChanged, this));
 
         if (this.element.is('input') || this.element.is('button')) {
             this.element.on({
@@ -505,7 +516,12 @@
 
             this.previousRightTime = this.endDate.clone();
 
-            this.container.find('.drp-selected').html(this.startDate.format(this.locale.format) + this.locale.separator + this.endDate.format(this.locale.format));
+            if(this.typingInput) {
+              this.container.find('.drp-input_start').val(this.startDate.format(this.locale.format));
+              this.container.find('.drp-input_end').val(this.endDate.format(this.locale.format));
+            } else {
+              this.container.find('.drp-selected').html(this.startDate.format(this.locale.format) + this.locale.separator + this.endDate.format(this.locale.format));
+            }
 
             if (!this.isShowing)
                 this.updateElement();
@@ -532,10 +548,27 @@
                 }
             }
             if (this.endDate)
-                this.container.find('.drp-selected').html(this.startDate.format(this.locale.format) + this.locale.separator + this.endDate.format(this.locale.format));
+                if(this.typingInput) {
+                  this.container.find('.drp-input_start').val(this.startDate.format(this.locale.format));
+                  this.container.find('.drp-input_end').val(this.endDate.format(this.locale.format));
+                } else {
+                  this.container.find('.drp-selected').html(this.startDate.format(this.locale.format) + this.locale.separator + this.endDate.format(this.locale.format));
+                }
             this.updateMonthsInView();
             this.updateCalendars();
             this.updateFormInputs();
+        },
+
+        formInputsChanged: function(e) {
+          var start = moment(this.container.find('.drp-input_start').val(), this.locale.format);
+          var end = moment(this.container.find('.drp-input_end').val(), this.locale.format);
+          if (start.isValid() && end.isValid()) {
+            if (end.isBefore(start))
+              start = end.clone();
+            this.setStartDate(start);
+            this.setEndDate(end);
+          }
+          this.updateView();
         },
 
         updateMonthsInView: function() {
